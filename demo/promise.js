@@ -17,11 +17,19 @@ const MyPromise = function (executor) {
         fire: (name) => {
             if (pubsub._events[name] && pubsub._events[name].length > 0) {
                 pubsub._events[name].forEach((handler) => {
-                    handler();
+                    setTimeout(handler, 0);
                 });
             }
         }
     };
+
+    const isObject = (value) => {
+        return value != null && (typeof value === 'object' || typeof value === 'function');
+    };
+
+    const isFunction = (value) => {
+        return isObject(value) && Object.prototype.toString.call(value).toLowerCase() === '[object function]';
+    }
 
     let promiseState = PENDING;
     let fulfilledValue, rejectedReason;
@@ -46,22 +54,32 @@ const MyPromise = function (executor) {
 
         return new MyPromise((resolve, reject) => {
             pubsub.on(FULFILLED, () => {
-                try {
-                    const value = onFulfilled(fulfilledValue);
-                    resolve(value);
+                if  (isFunction(onFulfilled)) {
+                    try {
+                        const value = onFulfilled(fulfilledValue);
+                        resolve(value);
+                    }
+                    catch (err) {
+                        reject(err);
+                    }
                 }
-                catch (err) {
-                    reject(err.message);
+                else {
+                    resolve(fulfilledValue);
                 }
             });
 
             pubsub.on(REJECTED, () => {
-                try {
-                    const value = onRejected(rejectedReason);
-                    resolve(value);
+                if (isFunction(onRejected)) {
+                    try {
+                        const value = onRejected(rejectedReason);
+                        resolve(value);
+                    }
+                    catch (err) {
+                        reject(err);
+                    }
                 }
-                catch (err) {
-                    reject(err.message);
+                else {
+                    reject(rejectedReason);
                 }
             });
         });
@@ -74,18 +92,10 @@ const MyPromise = function (executor) {
 
 const p1 = new MyPromise((resolve, reject) => {
     setTimeout(() => {
-        resolve(1);
+        resolve(12);
     }, 3000)
 });
 
-p1.then((res) => {
-    console.log(res + '0');
-});
-
-p1.then((res) => {
-    console.log(res + '1')
-});
-
-p1.then((res) => {
-    console.log(res + '2')
+p1.then().then((res) => {
+    console.log(res);
 });
