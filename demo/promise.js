@@ -8,20 +8,12 @@ const MyPromise = function (executor) {
     const FULFILLED = 'fulfilled';
     const REJECTED = 'rejected';
 
-    const pubsub = {
-        _events: {},
-        on: (name, handler) => {
-            if (!pubsub._events[name]) { pubsub._events[name] = []; }
-            
-            pubsub._events[name].push(handler);
-        },
-        fire: (name) => {
-            if (pubsub._events[name] && pubsub._events[name].length > 0) {
-                pubsub._events[name].forEach((handler) => {
-                    setTimeout(handler, 0);
-                });
-            }
-        }
+    promiseInstance._state = PENDING;
+    promiseInstance._fulfilledValue = undefined;
+    promiseInstance._rejectedReason = undefined;
+    promiseInstance._callBacks = {
+        [FULFILLED]: [],
+        [REJECTED]: []
     };
 
     const isObject = (value) => {
@@ -30,22 +22,20 @@ const MyPromise = function (executor) {
 
     const isFunction = (value) => {
         return isObject(value) && Object.prototype.toString.call(value).toLowerCase() === '[object function]';
-    }
-
-    promiseInstance._state = PENDING;
+    };
 
     const myPromise_resolve = function (value) {
         // 更改状态
         // 发布事件
         promiseInstance._state = FULFILLED;
         promiseInstance._fulfilledValue = value;
-        pubsub.fire(FULFILLED);
+        promiseInstance._callBacks[FULFILLED].forEach((handler) => { setTimeout(handler, 0); });
     };
 
     const myPromise_reject = function (reason) {
         promiseInstance._state = REJECTED;
         promiseInstance._rejectedReason = reason;
-        pubsub.fire(REJECTED);
+        promiseInstance._callBacks[REJECTED].forEach((handler) => { setTimeout(handler, 0); });
     };
 
     const promiseResolutionProcedure = function (promise2, promise2_resolve, promise2_reject, promise1_value) {
@@ -102,7 +92,7 @@ const MyPromise = function (executor) {
     };
 
     const addFulfilledHandler = function (promise1_onFulfilled, promise2, promise2_resolve, promise2_reject) {
-        pubsub.on(FULFILLED, () => {
+        promiseInstance._callBacks[FULFILLED].push(() => {
             if  (isFunction(promise1_onFulfilled)) {
                 try {
                     const value = promise1_onFulfilled(promiseInstance._fulfilledValue);
@@ -119,7 +109,7 @@ const MyPromise = function (executor) {
     };
 
     const addRejectedHandler = function (promise1_onRejected, promise2, promise2_resolve, promise2_reject) {
-        pubsub.on(REJECTED, () => {
+        promiseInstance._callBacks[REJECTED].push(() => {
             if (isFunction(promise1_onRejected)) {
                 try {
                     const value = promise1_onRejected(promiseInstance._rejectedReason);
