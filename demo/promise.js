@@ -34,7 +34,7 @@ const MyPromise = function (executor) {
 
     promiseInstance._state = PENDING;
 
-    const resolve = function (value) {
+    const myPromise_resolve = function (value) {
         // 更改状态
         // 发布事件
         promiseInstance._state = FULFILLED;
@@ -42,7 +42,7 @@ const MyPromise = function (executor) {
         pubsub.fire(FULFILLED);
     };
 
-    const reject = function (reason) {
+    const myPromise_reject = function (reason) {
         promiseInstance._state = REJECTED;
         promiseInstance._rejectedReason = reason;
         pubsub.fire(REJECTED);
@@ -99,65 +99,87 @@ const MyPromise = function (executor) {
         else {
             promise2_resolve(promise1_value);
         }
-    }
+    };
 
-    const then = function (onFulfilled, onRejected) {
+    const addFulfilledHandler = function (promise1_onFulfilled, promise2, promise2_resolve, promise2_reject) {
+        pubsub.on(FULFILLED, () => {
+            if  (isFunction(promise1_onFulfilled)) {
+                try {
+                    const value = promise1_onFulfilled(promiseInstance._fulfilledValue);
+                    promiseResolutionProcedure(promise2, promise2_resolve, promise2_reject, value);
+                }
+                catch (err) {
+                    promise2_reject(err);
+                }
+            }
+            else {
+                promise2_resolve(promiseInstance._fulfilledValue);
+            }
+        });
+    };
+
+    const addRejectedHandler = function (promise1_onRejected, promise2, promise2_resolve, promise2_reject) {
+        pubsub.on(REJECTED, () => {
+            if (isFunction(promise1_onRejected)) {
+                try {
+                    const value = promise1_onRejected(promiseInstance._rejectedReason);
+                    promiseResolutionProcedure(promise2, promise2_resolve, promise2_reject, value);
+                }
+                catch (err) {
+                    promise2_reject(err);
+                }
+            }
+            else {
+                promise2_reject(promiseInstance._rejectedReason);
+            }
+        });
+    };
+
+    const myPromise_then = function (onFulfilled, onRejected) {
         // 注册事件
         // 监听状态，调用事件
 
-        const promise2 = new MyPromise((resolve, reject) => {
-            pubsub.on(FULFILLED, () => {
-                if  (isFunction(onFulfilled)) {
-                    try {
-                        const value = onFulfilled(promiseInstance._fulfilledValue);
-                        promiseResolutionProcedure(promise2, resolve, reject, value);
-                    }
-                    catch (err) {
-                        reject(err);
-                    }
-                }
-                else {
-                    resolve(promiseInstance._fulfilledValue);
-                }
-            });
-
-            pubsub.on(REJECTED, () => {
-                if (isFunction(onRejected)) {
-                    try {
-                        const value = onRejected(promiseInstance._rejectedReason);
-                        promiseResolutionProcedure(promise2, resolve, reject, value);
-                    }
-                    catch (err) {
-                        reject(err);
-                    }
-                }
-                else {
-                    reject(promiseInstance._rejectedReason);
-                }
-            });
+        const promise2 = new MyPromise(function (resolve, reject) {
+            addFulfilledHandler(onFulfilled, this, resolve, reject);
+            addRejectedHandler(onRejected, this, resolve, reject);
         });
 
         return promise2;
     };
 
-    executor(resolve, reject);
+    const myPromise_catch = function (onRejected) {
+        const promise2 = new MyPromise(function (resolve, reject) {
+            addRejectedHandler(onRejected, this, resolve, reject);
+        });
 
-    this.then = then;
+        return promise2;
+    };
+
+    executor(myPromise_resolve, myPromise_reject);
+
+    promiseInstance.then = myPromise_then;
+    promiseInstance.catch = myPromise_catch;
 };
 
 const p1 = new MyPromise((resolve, reject) => {
     setTimeout(() => {
         resolve(1);
-    }, 3000)
+    }, 1000)
 });
 
 p1.then((res) => {
     console.log(res);
     return new MyPromise((resolve, reject) => {
         setTimeout(() => {
-            resolve(2);
-        }, 3000)
+            resolve(26);
+        }, 1000)
     })
+}).then((res) => {
+    console.log(res);
+    throw new Error('出错了');
+}).catch((err) => {
+    console.log(err.message);
+    return 27;
 }).then((res) => {
     console.log(res);
 });
