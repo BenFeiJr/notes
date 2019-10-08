@@ -26,7 +26,8 @@ const MyPromise = function (executor) {
 
     const myPromise_resolve = function (value) {
         // 更改状态
-        // 发布事件
+        // 缓存value
+        // 调用回调 使用setTimeout是为了保证handler在下一次event loop执行
         promiseInstance._state = FULFILLED;
         promiseInstance._fulfilledValue = value;
         promiseInstance._callBacks[FULFILLED].forEach((handler) => { setTimeout(handler, 0); });
@@ -128,7 +129,6 @@ const MyPromise = function (executor) {
     const myPromise_then = function (onFulfilled, onRejected) {
         // 注册事件
         // 监听状态，调用事件
-
         const promise2 = new MyPromise(function (resolve, reject) {
             addFulfilledHandler(onFulfilled, this, resolve, reject);
             addRejectedHandler(onRejected, this, resolve, reject);
